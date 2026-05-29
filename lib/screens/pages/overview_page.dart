@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:monex/data/app_preferences.dart';
 import 'package:monex/data/app_state.dart';
+import 'package:monex/screens/auths/login_screen.dart';
 import 'package:monex/screens/pages/add_transaction_page.dart';
 import 'package:monex/screens/pages/analytics_page.dart';
 import 'package:monex/screens/pages/transactions_search_page.dart';
@@ -32,6 +33,108 @@ class _OverviewPageState extends State<OverviewPage> {
     Future<void>.delayed(const Duration(milliseconds: 360), () {
       if (mounted) setState(() => _showSkeleton = false);
     });
+  }
+
+  Future<void> _showAccountSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: MonexColors.surface,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) {
+        final account = appState.currentAccount;
+        final title = account == null ? 'Tài khoản khách' : account.username;
+        final subtitle = account == null
+            ? 'Bạn đang dùng chế độ khách'
+            : account.email;
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: MonexTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        title.substring(0, 1).toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: MonexColors.ink,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: MonexColors.muted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    appState.logout();
+                    Navigator.of(
+                      context,
+                      rootNavigator: true,
+                    ).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                      (route) => false,
+                    );
+                  },
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Đăng xuất'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: MonexColors.expense,
+                    side: const BorderSide(color: MonexColors.expense),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -156,21 +259,25 @@ class _OverviewPageState extends State<OverviewPage> {
           onTap: appPreferences.toggleTheme,
         ),
         const SizedBox(width: 8),
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: MonexColors.surface,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: MonexColors.line),
-          ),
-          child: Center(
-            child: Text(
-              initial,
-              style: const TextStyle(
-                color: MonexColors.primary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
+        InkWell(
+          onTap: _showAccountSheet,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: MonexColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MonexColors.line),
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: MonexColors.primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -200,6 +307,10 @@ class _OverviewPageState extends State<OverviewPage> {
   }
 
   Widget _buildBalanceCard(BuildContext context) {
+    final monthBalance = appState.currentMonthBalance;
+    final monthIncome = appState.currentMonthIncomeTotal;
+    final monthExpense = appState.currentMonthExpenseTotal;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -243,7 +354,7 @@ class _OverviewPageState extends State<OverviewPage> {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: AnimatedMoneyText(
-              value: money(appState.balance),
+              value: money(monthBalance),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 38,
@@ -257,7 +368,7 @@ class _OverviewPageState extends State<OverviewPage> {
               Expanded(
                 child: _buildBalanceMetric(
                   label: 'Thu nhập',
-                  value: money(appState.incomeTotal),
+                  value: money(monthIncome),
                   icon: Icons.arrow_downward_rounded,
                   onTap: () {
                     Navigator.of(context).push(
@@ -272,7 +383,7 @@ class _OverviewPageState extends State<OverviewPage> {
               Expanded(
                 child: _buildBalanceMetric(
                   label: 'Chi tiêu',
-                  value: money(appState.expenseTotal),
+                  value: money(monthExpense),
                   icon: Icons.arrow_upward_rounded,
                   onTap: () {
                     Navigator.of(context).push(
@@ -547,7 +658,7 @@ class _OverviewPageState extends State<OverviewPage> {
                       title: 'Kiểm tra ngân sách',
                       amount:
                           appState.highestBudgetRisk?.spent ??
-                          appState.expenseTotal,
+                          appState.currentMonthExpenseTotal,
                       dueDate: DateTime.now().add(const Duration(days: 1)),
                       frequency: 'Không lặp lại',
                     );

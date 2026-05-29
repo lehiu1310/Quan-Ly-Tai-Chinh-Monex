@@ -53,6 +53,10 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
+        final selectedMonth = DateTime(_selectedDay.year, _selectedDay.month);
+        final monthIncomes = appState.incomesForMonth(selectedMonth);
+        final incomeTotal = appState.incomeTotalForMonth(selectedMonth);
+
         return Scaffold(
           backgroundColor: MonexColors.background,
           appBar: AppBar(
@@ -68,7 +72,7 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
               children: [
                 _buildCalendar(),
                 const SizedBox(height: 24),
-                _buildTotalCircle(totalAmount: money(appState.incomeTotal)),
+                _buildTotalCircle(totalAmount: money(incomeTotal)),
                 const SizedBox(height: 8),
                 const Text(
                   'Bạn đã nhận được tổng cộng\ncho tháng này',
@@ -76,7 +80,7 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
                   style: TextStyle(color: MonexColors.muted, fontSize: 16),
                 ),
                 const SizedBox(height: 24),
-                _buildTabs(),
+                _buildTabs(monthIncomes),
               ],
             ),
           ),
@@ -159,7 +163,7 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
     );
   }
 
-  Widget _buildTabs() {
+  Widget _buildTabs(List<TransactionEntry> monthIncomes) {
     return Expanded(
       child: Column(
         children: [
@@ -181,7 +185,10 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [_buildIncomesList(), _buildSourcesView()],
+              children: [
+                _buildIncomesList(monthIncomes),
+                _buildSourcesView(monthIncomes),
+              ],
             ),
           ),
         ],
@@ -189,9 +196,8 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
     );
   }
 
-  Widget _buildIncomesList() {
-    final incomes = [...appState.incomes]
-      ..sort((a, b) => b.date.compareTo(a.date));
+  Widget _buildIncomesList(List<TransactionEntry> monthIncomes) {
+    final incomes = [...monthIncomes]..sort((a, b) => b.date.compareTo(a.date));
 
     if (incomes.isEmpty) {
       return const Center(
@@ -211,8 +217,8 @@ class _TotalSalaryPageState extends State<TotalSalaryPage>
     );
   }
 
-  Widget _buildSourcesView() {
-    final data = _groupByCategory(appState.incomes);
+  Widget _buildSourcesView(List<TransactionEntry> incomes) {
+    final data = _groupByCategory(incomes);
     final total = data.fold(0.0, (sum, item) => sum + item.amount);
 
     if (total <= 0) {

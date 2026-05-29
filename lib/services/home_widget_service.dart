@@ -3,14 +3,17 @@ import 'package:monex/data/app_state.dart';
 
 class HomeWidgetService {
   Future<void> update(MonexAppState state) async {
-    await HomeWidget.saveWidgetData<String>('balance', money(state.balance));
+    await HomeWidget.saveWidgetData<String>(
+      'balance',
+      money(state.currentMonthBalance),
+    );
     await HomeWidget.saveWidgetData<String>(
       'income',
-      '+ ${money(state.incomeTotal)}',
+      '+ ${money(state.currentMonthIncomeTotal)}',
     );
     await HomeWidget.saveWidgetData<String>(
       'expense',
-      '- ${money(state.expenseTotal)}',
+      '- ${money(state.currentMonthExpenseTotal)}',
     );
     await HomeWidget.saveWidgetData<String>('account', state.displayName);
     await HomeWidget.updateWidget(androidName: 'MonexHomeWidgetProvider');

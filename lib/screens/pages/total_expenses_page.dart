@@ -53,13 +53,15 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
-        final budgetTotal = appState.budgets.fold(
-          0.0,
-          (sum, budget) => sum + budget.limit,
-        );
+        final selectedMonth = DateTime(_selectedDay.year, _selectedDay.month);
+        final monthExpenses = appState.expensesForMonth(selectedMonth);
+        final expenseTotal = appState.expenseTotalForMonth(selectedMonth);
+        final budgetTotal = appState
+            .budgetsForMonth(selectedMonth)
+            .fold(0.0, (sum, budget) => sum + budget.limit);
         final percent = budgetTotal <= 0
             ? 0
-            : ((appState.expenseTotal / budgetTotal) * 100).round();
+            : ((expenseTotal / budgetTotal) * 100).round();
 
         return Scaffold(
           backgroundColor: MonexColors.background,
@@ -76,7 +78,7 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
               children: [
                 _buildCalendar(),
                 const SizedBox(height: 24),
-                _buildTotalCircle(totalAmount: money(appState.expenseTotal)),
+                _buildTotalCircle(totalAmount: money(expenseTotal)),
                 const SizedBox(height: 8),
                 Text(
                   'Bạn đã chi tiêu tổng cộng\n$percent% ngân sách của bạn',
@@ -87,7 +89,7 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
                   ),
                 ),
                 const SizedBox(height: 24),
-                _buildTabs(),
+                _buildTabs(monthExpenses),
               ],
             ),
           ),
@@ -170,7 +172,7 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
     );
   }
 
-  Widget _buildTabs() {
+  Widget _buildTabs(List<TransactionEntry> monthExpenses) {
     return Expanded(
       child: Column(
         children: [
@@ -192,7 +194,10 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: [_buildSpendsList(), _buildCategoriesView()],
+              children: [
+                _buildSpendsList(monthExpenses),
+                _buildCategoriesView(monthExpenses),
+              ],
             ),
           ),
         ],
@@ -200,8 +205,8 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
     );
   }
 
-  Widget _buildSpendsList() {
-    final expenses = [...appState.expenses]
+  Widget _buildSpendsList(List<TransactionEntry> monthExpenses) {
+    final expenses = [...monthExpenses]
       ..sort((a, b) => b.date.compareTo(a.date));
 
     if (expenses.isEmpty) {
@@ -222,8 +227,8 @@ class _TotalExpensesPageState extends State<TotalExpensesPage>
     );
   }
 
-  Widget _buildCategoriesView() {
-    final data = _groupByCategory(appState.expenses);
+  Widget _buildCategoriesView(List<TransactionEntry> expenses) {
+    final data = _groupByCategory(expenses);
     final total = data.fold(0.0, (sum, item) => sum + item.amount);
 
     if (total <= 0) {

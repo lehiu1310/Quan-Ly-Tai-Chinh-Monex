@@ -11,7 +11,7 @@ import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xls;
 class ReportService {
   Future<void> shareMonthlyPdf(MonexAppState state) async {
     final doc = pw.Document();
-    final transactions = [...state.transactions]
+    final transactions = [...state.currentMonthTransactions]
       ..sort((a, b) => b.date.compareTo(a.date));
 
     doc.addPage(
@@ -24,9 +24,9 @@ class ReportService {
           ),
           pw.SizedBox(height: 10),
           pw.Text('Account: ${state.displayName}'),
-          pw.Text('Balance: ${money(state.balance)}'),
-          pw.Text('Income: ${money(state.incomeTotal)}'),
-          pw.Text('Expense: ${money(state.expenseTotal)}'),
+          pw.Text('Balance: ${money(state.currentMonthBalance)}'),
+          pw.Text('Income: ${money(state.currentMonthIncomeTotal)}'),
+          pw.Text('Expense: ${money(state.currentMonthExpenseTotal)}'),
           pw.SizedBox(height: 20),
           pw.TableHelper.fromTextArray(
             headers: ['Date', 'Type', 'Title', 'Category', 'Amount'],
@@ -64,7 +64,7 @@ class ReportService {
     sheet.getRangeByName('D1').setText('Category');
     sheet.getRangeByName('E1').setText('Amount');
 
-    final transactions = [...state.transactions]
+    final transactions = [...state.currentMonthTransactions]
       ..sort((a, b) => b.date.compareTo(a.date));
     for (var i = 0; i < transactions.length; i++) {
       final row = i + 2;
@@ -81,11 +81,11 @@ class ReportService {
     }
 
     sheet.getRangeByName('G1').setText('Balance');
-    sheet.getRangeByName('H1').setNumber(state.balance);
+    sheet.getRangeByName('H1').setNumber(state.currentMonthBalance);
     sheet.getRangeByName('G2').setText('Income');
-    sheet.getRangeByName('H2').setNumber(state.incomeTotal);
+    sheet.getRangeByName('H2').setNumber(state.currentMonthIncomeTotal);
     sheet.getRangeByName('G3').setText('Expense');
-    sheet.getRangeByName('H3').setNumber(state.expenseTotal);
+    sheet.getRangeByName('H3').setNumber(state.currentMonthExpenseTotal);
 
     final bytes = workbook.saveAsStream();
     workbook.dispose();

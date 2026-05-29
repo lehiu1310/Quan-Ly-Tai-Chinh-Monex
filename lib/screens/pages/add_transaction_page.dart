@@ -5,6 +5,7 @@ import 'package:monex/screens/pages/add_goal_page.dart';
 import 'package:monex/screens/pages/add_income_page.dart';
 import 'package:monex/screens/pages/set_reminder_page.dart';
 import 'package:monex/theme/app_theme.dart';
+import 'package:monex/widgets/category_dialogs.dart';
 
 class AddTransactionPage extends StatefulWidget {
   const AddTransactionPage({super.key});
@@ -27,77 +28,10 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
   }
 
   Future<void> _addCategory() async {
-    TransactionType selectedType = TransactionType.expense;
-    final controller = TextEditingController();
-
-    final result = await showDialog<_CategoryDraft>(
+    final result = await showDialog<CategoryDraft>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Thêm danh mục'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<TransactionType>(
-                    initialValue: selectedType,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.category_outlined),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: TransactionType.income,
-                        child: Text('Danh mục thu nhập'),
-                      ),
-                      DropdownMenuItem(
-                        value: TransactionType.expense,
-                        child: Text('Danh mục chi phí'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setDialogState(() => selectedType = value);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      hintText: 'Tên danh mục mới',
-                    ),
-                    onSubmitted: (value) {
-                      final name = value.trim();
-                      if (name.isEmpty) return;
-                      Navigator.of(
-                        context,
-                      ).pop(_CategoryDraft(selectedType, name));
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Hủy'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final name = controller.text.trim();
-                    if (name.isEmpty) return;
-                    Navigator.of(
-                      context,
-                    ).pop(_CategoryDraft(selectedType, name));
-                  },
-                  child: const Text('Thêm'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      useRootNavigator: true,
+      builder: (context) => const CategoryDraftDialog(),
     );
 
     if (result == null) return;
@@ -421,11 +355,4 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
       ),
     );
   }
-}
-
-class _CategoryDraft {
-  const _CategoryDraft(this.type, this.name);
-
-  final TransactionType type;
-  final String name;
 }

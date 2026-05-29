@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:monex/data/app_state.dart';
 import 'package:monex/theme/app_theme.dart';
+import 'package:monex/widgets/category_dialogs.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 class AddIncomePage extends StatefulWidget {
@@ -14,6 +15,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
+  final _categoryScrollController = ScrollController();
 
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -31,6 +33,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
+    _categoryScrollController.dispose();
     super.dispose();
   }
 
@@ -47,44 +50,70 @@ class _AddIncomePageState extends State<AddIncomePage> {
     Navigator.of(context).pop(true);
   }
 
+  void _selectDate(DateTime date) {
+    setState(() {
+      _selectedDay = date;
+      _focusedDay = date;
+    });
+  }
+
+  DateTime _sameDayPreviousMonth() {
+    final targetMonth = DateTime(_selectedDay.year, _selectedDay.month - 1);
+    final lastDayOfTargetMonth = DateTime(
+      targetMonth.year,
+      targetMonth.month + 1,
+      0,
+    ).day;
+    final day = _selectedDay.day > lastDayOfTargetMonth
+        ? lastDayOfTargetMonth
+        : _selectedDay.day;
+    return DateTime(targetMonth.year, targetMonth.month, day);
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDay,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035, 12, 31),
+      helpText: 'Chọn ngày thu nhập',
+      cancelText: 'Hủy',
+      confirmText: 'Chọn',
+    );
+    if (picked == null) return;
+    _selectDate(picked);
+  }
+
   Future<void> _addCategory() async {
-    final controller = TextEditingController();
     final category = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Thêm danh mục thu nhập'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(hintText: 'Ví dụ: Bán hàng'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Hủy'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Thêm'),
-            ),
-          ],
-        );
-      },
+      useRootNavigator: true,
+      builder: (context) => const CategoryNameDialog(
+        title: 'Thêm danh mục thu nhập',
+        hintText: 'Ví dụ: Bán hàng',
+      ),
     );
-    controller.dispose();
-
     final value = category?.trim();
     if (value == null || value.isEmpty) return;
 
     appState.addCategory(TransactionType.income, value);
+    final newIndex = appState.incomeCategories.indexWhere(
+      (item) => item.toLowerCase() == value.toLowerCase(),
+    );
     setState(() {
-      _selectedCategoryIndex = appState.incomeCategories.indexWhere(
-        (item) => item.toLowerCase() == value.toLowerCase(),
-      );
+      _selectedCategoryIndex = newIndex;
       if (_selectedCategoryIndex < 0) _selectedCategoryIndex = 0;
     });
+    if (newIndex >= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_categoryScrollController.hasClients) return;
+        _categoryScrollController.animateTo(
+          _categoryScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      });
+    }
   }
 
   @override
@@ -105,7 +134,14 @@ class _AddIncomePageState extends State<AddIncomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const Text(
+                'Ngày thu nhập',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
               _buildCalendar(),
+              const SizedBox(height: 12),
+              _buildDateActions(MonexColors.income),
               const SizedBox(height: 24),
               _buildTextField(
                 controller: _titleController,
@@ -184,6 +220,32 @@ class _AddIncomePageState extends State<AddIncomePage> {
     );
   }
 
+  Widget _buildDateActions(Color color) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _pickDate,
+            icon: const Icon(Icons.event_outlined, size: 18),
+            label: Text(
+              shortDate(_selectedDay),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _selectDate(_sameDayPreviousMonth()),
+            icon: const Icon(Icons.keyboard_double_arrow_left, size: 18),
+            label: const Text('Tháng trước', overflow: TextOverflow.ellipsis),
+            style: OutlinedButton.styleFrom(foregroundColor: color),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -237,6 +299,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
           child: SizedBox(
             height: 50,
             child: ListView.separated(
+              controller: _categoryScrollController,
               scrollDirection: Axis.horizontal,
               itemCount: categories.length,
               separatorBuilder: (context, index) => const SizedBox(width: 10),

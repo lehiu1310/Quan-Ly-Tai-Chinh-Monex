@@ -123,8 +123,14 @@ class SavingsPage extends StatelessWidget {
   }
 
   Widget _buildMonthlyGoalCard() {
-    final suggested = (appState.incomeTotal * 0.1).clamp(0.0, 999999.0);
-    final comfortable = (appState.balance * 0.2).clamp(0.0, 999999.0);
+    final suggested = (appState.currentMonthIncomeTotal * 0.1).clamp(
+      0.0,
+      999999.0,
+    );
+    final comfortable = (appState.currentMonthBalance * 0.2).clamp(
+      0.0,
+      999999.0,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16.0),

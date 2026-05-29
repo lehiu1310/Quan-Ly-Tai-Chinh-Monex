@@ -64,7 +64,7 @@ class InsightService {
       );
     }
 
-    if (state.transactions.isEmpty && state.reminders.isEmpty) {
+    if (state.currentMonthTransactions.isEmpty && state.reminders.isEmpty) {
       return const AssistantInsight(
         title: 'Chưa đủ dữ liệu để phân tích',
         subtitle: 'Trợ lý đang chờ dữ liệu thật',
@@ -117,10 +117,11 @@ class InsightService {
       );
     }
 
-    if (state.incomeTotal > 0 && state.expenseTotal == 0) {
+    if (state.currentMonthIncomeTotal > 0 &&
+        state.currentMonthExpenseTotal == 0) {
       return AssistantInsight(
         title: 'Thu nhập đã có, chi tiêu chưa ghi',
-        subtitle: 'Số dư hiện tại ${money(state.balance)}',
+        subtitle: 'Số dư hiện tại ${money(state.currentMonthBalance)}',
         message:
             'Bạn đã ghi thu nhập nhưng chưa có khoản chi nào. Trợ lý sẽ bắt đầu cảnh báo chính xác hơn sau khi có ít nhất một chi phí thật.',
         status: 'Ổn',
@@ -130,10 +131,11 @@ class InsightService {
       );
     }
 
-    if (state.incomeTotal == 0 && state.expenseTotal > 0) {
+    if (state.currentMonthIncomeTotal == 0 &&
+        state.currentMonthExpenseTotal > 0) {
       return AssistantInsight(
         title: 'Có chi tiêu nhưng chưa có thu nhập',
-        subtitle: 'Chi tiêu hiện tại ${money(state.expenseTotal)}',
+        subtitle: 'Chi tiêu hiện tại ${money(state.currentMonthExpenseTotal)}',
         message:
             'Bạn nên thêm nguồn thu nhập để app tính số dư và cảnh báo ngân sách chính xác hơn cho tài khoản này.',
         status: 'Thiếu',
@@ -143,9 +145,11 @@ class InsightService {
       );
     }
 
-    final ratio = state.incomeTotal == 0
+    final ratio = state.currentMonthIncomeTotal == 0
         ? 0.0
-        : (state.expenseTotal / state.incomeTotal).clamp(0.0, 1.0).toDouble();
+        : (state.currentMonthExpenseTotal / state.currentMonthIncomeTotal)
+              .clamp(0.0, 1.0)
+              .toDouble();
     final topCategory = _topExpenseCategory(state);
     if (ratio >= 0.65) {
       return AssistantInsight(
@@ -163,7 +167,7 @@ class InsightService {
 
     return AssistantInsight(
       title: 'Dòng tiền đang ổn',
-      subtitle: 'Số dư ${money(state.balance)}',
+      subtitle: 'Số dư ${money(state.currentMonthBalance)}',
       message: topCategory == null
           ? 'Chưa có rủi ro đáng chú ý. App sẽ chỉ tạo thông báo khi phát hiện hóa đơn đến hạn, ngân sách vượt ngưỡng hoặc giao dịch bất thường.'
           : 'Nhóm chi lớn nhất hiện là ${topCategory.name} (${money(topCategory.amount)}), nhưng chưa vượt ngưỡng cảnh báo.',
@@ -260,14 +264,14 @@ class InsightService {
   }
 
   List<SmartNotification> _cashFlowNotifications(MonexAppState state) {
-    if (state.transactions.isEmpty) return [];
-    if (state.balance < 0) {
+    if (state.currentMonthTransactions.isEmpty) return [];
+    if (state.currentMonthBalance < 0) {
       return [
         SmartNotification(
           icon: Icons.account_balance_wallet_outlined,
           title: 'Số dư đang âm',
           subtitle:
-              'Chi tiêu đang vượt thu nhập ${money(state.balance.abs())}. Hãy kiểm tra lại các khoản chi gần đây.',
+              'Chi tiêu đang vượt thu nhập ${money(state.currentMonthBalance.abs())}. Hãy kiểm tra lại các khoản chi gần đây.',
           timeLabel: 'Ngay bây giờ',
           source: 'Dòng tiền',
           severity: InsightSeverity.danger,
@@ -276,14 +280,15 @@ class InsightService {
       ];
     }
 
-    if (state.incomeTotal > 0 &&
-        state.expenseTotal >= state.incomeTotal * 0.85) {
+    if (state.currentMonthIncomeTotal > 0 &&
+        state.currentMonthExpenseTotal >=
+            state.currentMonthIncomeTotal * 0.85) {
       return [
         SmartNotification(
           icon: Icons.trending_up_rounded,
           title: 'Chi tiêu gần bằng thu nhập',
           subtitle:
-              'Bạn đã dùng ${(state.expenseTotal / state.incomeTotal * 100).round()}% thu nhập tháng này.',
+              'Bạn đã dùng ${(state.currentMonthExpenseTotal / state.currentMonthIncomeTotal * 100).round()}% thu nhập tháng này.',
           timeLabel: 'Tháng này',
           source: 'Dòng tiền',
           severity: InsightSeverity.warning,
@@ -331,12 +336,15 @@ class InsightService {
   List<SmartNotification> _unusualTransactionNotifications(
     MonexAppState state,
   ) {
-    final expenses = state.expenses;
+    final expenses = state.currentMonthExpenses;
     if (expenses.length < 3) return [];
 
-    final average = state.expenseTotal / expenses.length;
+    final average = state.currentMonthExpenseTotal / expenses.length;
     final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    final floor = math.max(average * 1.8, state.expenseTotal * 0.28);
+    final floor = math.max(
+      average * 1.8,
+      state.currentMonthExpenseTotal * 0.28,
+    );
     final unusual =
         expenses
             .where(
@@ -364,7 +372,7 @@ class InsightService {
 
   _CategoryTotal? _topExpenseCategory(MonexAppState state) {
     final totals = <String, double>{};
-    for (final item in state.expenses) {
+    for (final item in state.currentMonthExpenses) {
       totals[item.category] = (totals[item.category] ?? 0) + item.amount;
     }
     if (totals.isEmpty) return null;

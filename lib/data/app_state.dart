@@ -117,12 +117,15 @@ class _AccountLedger {
     List<String>? incomeCategories,
     List<String>? expenseCategories,
     Map<String, double>? budgetLimits,
-  }) : transactions = transactions ?? [],
-       goals = goals ?? [],
-       reminders = reminders ?? [],
-       incomeCategories = incomeCategories ?? ['Lương', 'Thưởng', 'Freelance'],
-       expenseCategories =
-           expenseCategories ?? ['Ăn uống', 'Giao thông', 'Mua sắm', 'Hóa đơn'],
+  }) : transactions = List<TransactionEntry>.of(transactions ?? []),
+       goals = List<SavingsGoal>.of(goals ?? []),
+       reminders = List<ReminderEntry>.of(reminders ?? []),
+       incomeCategories = List<String>.of(
+         incomeCategories ?? ['Lương', 'Thưởng', 'Freelance'],
+       ),
+       expenseCategories = List<String>.of(
+         expenseCategories ?? ['Ăn uống', 'Giao thông', 'Mua sắm', 'Hóa đơn'],
+       ),
        budgetLimits =
            budgetLimits ??
            {'Ăn uống': 500, 'Mua sắm': 500, 'Giao thông': 100, 'Hóa đơn': 250};
@@ -179,9 +182,56 @@ class MonexAppState extends ChangeNotifier {
     return items.take(8).toList(growable: false);
   }
 
+  List<TransactionEntry> transactionsInRange(DateTime start, DateTime end) {
+    final from = DateTime(start.year, start.month, start.day);
+    final to = DateTime(end.year, end.month, end.day);
+    return _activeLedger.transactions
+        .where((entry) {
+          final date = DateTime(
+            entry.date.year,
+            entry.date.month,
+            entry.date.day,
+          );
+          return !date.isBefore(from) && date.isBefore(to);
+        })
+        .toList(growable: false);
+  }
+
+  List<TransactionEntry> transactionsForMonth(DateTime month) {
+    final start = DateTime(month.year, month.month);
+    final end = DateTime(month.year, month.month + 1);
+    return transactionsInRange(start, end);
+  }
+
+  List<TransactionEntry> incomesForMonth(DateTime month) =>
+      transactionsForMonth(month)
+          .where((entry) => entry.type == TransactionType.income)
+          .toList(growable: false);
+
+  List<TransactionEntry> expensesForMonth(DateTime month) =>
+      transactionsForMonth(month)
+          .where((entry) => entry.type == TransactionType.expense)
+          .toList(growable: false);
+
+  List<TransactionEntry> get currentMonthTransactions =>
+      transactionsForMonth(DateTime.now());
+  List<TransactionEntry> get currentMonthIncomes =>
+      incomesForMonth(DateTime.now());
+  List<TransactionEntry> get currentMonthExpenses =>
+      expensesForMonth(DateTime.now());
+
   double get incomeTotal => incomes.fold(0, (sum, item) => sum + item.amount);
   double get expenseTotal => expenses.fold(0, (sum, item) => sum + item.amount);
   double get balance => incomeTotal - expenseTotal;
+  double incomeTotalForMonth(DateTime month) =>
+      incomesForMonth(month).fold(0, (sum, item) => sum + item.amount);
+  double expenseTotalForMonth(DateTime month) =>
+      expensesForMonth(month).fold(0, (sum, item) => sum + item.amount);
+  double balanceForMonth(DateTime month) =>
+      incomeTotalForMonth(month) - expenseTotalForMonth(month);
+  double get currentMonthIncomeTotal => incomeTotalForMonth(DateTime.now());
+  double get currentMonthExpenseTotal => expenseTotalForMonth(DateTime.now());
+  double get currentMonthBalance => balanceForMonth(DateTime.now());
   double get savingsTotal =>
       goals.fold(0, (sum, item) => sum + item.currentAmount);
   double get billsTotal => reminders.fold(0, (sum, item) => sum + item.amount);
@@ -264,6 +314,13 @@ class MonexAppState extends ChangeNotifier {
   }
 
   void useGuestAccount() {
+    _currentAccount = null;
+    _displayName = 'Khách';
+    _ledgers.putIfAbsent(_guestKey, _AccountLedger.new);
+    _persistAndNotify();
+  }
+
+  void logout() {
     _currentAccount = null;
     _displayName = 'Khách';
     _ledgers.putIfAbsent(_guestKey, _AccountLedger.new);
@@ -396,11 +453,14 @@ class MonexAppState extends ChangeNotifier {
     _persistAndNotify();
   }
 
-  List<BudgetInfo> get budgets {
+  List<BudgetInfo> get budgets => budgetsForMonth(DateTime.now());
+
+  List<BudgetInfo> budgetsForMonth(DateTime month) {
     final ledger = _activeLedger;
+    final monthExpenses = expensesForMonth(month);
     return ledger.budgetLimits.entries
         .map((entry) {
-          final spent = expenses
+          final spent = monthExpenses
               .where((expense) => expense.category == entry.key)
               .fold(0.0, (sum, expense) => sum + expense.amount);
           return BudgetInfo(
@@ -422,7 +482,7 @@ class MonexAppState extends ChangeNotifier {
   }
 
   double spentForCategory(String category) {
-    return expenses
+    return currentMonthExpenses
         .where((expense) => expense.category == category)
         .fold(0, (sum, expense) => sum + expense.amount);
   }
@@ -691,7 +751,7 @@ class MonexAppState extends ChangeNotifier {
     final items = value
         .map((item) => item.toString().trim())
         .where((item) => item.isNotEmpty)
-        .toList(growable: false);
+        .toList();
     return items.isEmpty ? null : items;
   }
 
